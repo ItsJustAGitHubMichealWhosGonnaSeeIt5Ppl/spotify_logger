@@ -56,14 +56,15 @@ def callback():
             'client_secret': CLIENT_SECRET,
         }
         userTokenResponse = requests.post(TOKEN_URL, data = userTokenRequestData) # // Send request to spotify for actual token
-        if "200" in str(userTokenResponse):
+        if userTokenResponse.status_code == 200:
             print("Login stage 2 complete") #// Debug
             unixTime = int(str(datetime.datetime.now(datetime.timezone.utc).timestamp())[:10]) # // Get the current time (will be important later)
             userTokenResponse = userTokenResponse.json() # Format response as a dictionary
             header = {'Authorization': 'Bearer ' +  userTokenResponse['access_token']} # // Properly formatted header so spotify won't be angry
 
             userProfileRequest = requests.get(API_URL + '/me', headers = header).json() # // Try to get users friendly name and Spotify ID for database
-            userInformation = { # // Reformat data from request / TODO: Add a check to make sure the data is good (response code is probably fine) / TODO Try inputting this right into the SQLite request without creating a new dictionary
+            
+            userInformation = { # // Reformat data from request / TODO: #1 Add a check to make sure the data is good (response code is probably fine) / TODO Try inputting this right into the SQLite request without creating a new dictionary
                 "userID": userProfileRequest["id"],
                 "name": userProfileRequest["display_name"],
                 "token": userTokenResponse['access_token'],

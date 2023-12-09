@@ -70,7 +70,7 @@ def scanLiked(scanUser): # // Scan users liked tracks manually.  Input userID (w
     while trackOffset < totalTracks:
         print(f"doing tracks starting at{trackOffset}, total tracks = {totalTracks}")
         trackRequest = get(API_URL + "/me/tracks?limit=50&offset=" + str(trackOffset), headers = header) # // Pull first 50 tracks # // Add server busy detection [500]
-        if trackRequest.status_code != 20: continue 
+        if trackRequest.status_code != 200: continue 
         trackRequest = trackRequest.json()
         totalTracks = int(trackRequest["total"])
         trackOffset = int(trackRequest["offset"]) + 50 # // Add 50 to offset (loading the next page)
@@ -166,5 +166,4 @@ def drasticMeasures(): # Delete the entire trackLog DB
     cursor = database.cursor()
     cursor.execute("DELETE FROM trackLog")
     database.commit()
-# scanLiked("rtepicsadface") #// DEBUG ONLY
 # getLogs() #// DEBUG ONLY
