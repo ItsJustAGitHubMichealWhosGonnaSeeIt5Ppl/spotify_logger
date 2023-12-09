@@ -73,8 +73,8 @@ def callback():
             }
             print(userProfileRequest["id"]) # // Debug
             # // REMEMBER TO UNCOMMENT THESE
-            # sMod.addUser(userInformation) # // Attempt to add user
-            # sMod.scanLiked(userProfileRequest["id"])
+            sMod.addUser(userInformation) # // Attempt to add user
+            sMod.scanLiked(userProfileRequest["id"]) # // Scan user
         else: # // Failed login, send back to auth page
             return flask.redirect('/login') 
     else: # // Failed login, send back to auth page
