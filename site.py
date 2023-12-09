@@ -1,6 +1,3 @@
-## Just check the notion page
-
-
 # // Imports
 from flask import redirect
 import requests # // Send API requests
@@ -11,6 +8,8 @@ import os # // Needed to access the API keys
 import datetime # // Used to track user first login time and track removal time
 import sqlite3 # // Used for information collection and storage
 import mySpotifyModules as sMod
+from waitress import serve
+
 
 # // Constants and variables we'll need alot
 dotenv.load_dotenv() # // Loading variables
@@ -22,7 +21,7 @@ REDIRECT_URI = 'http://localhost:8888/callback' # // Local callback, should cont
 API_URL = 'https://api.spotify.com/v1' # // Base URL for all API calls to spotify
 ## \\ All above are Constants (variable that cannot be changed). To create, use ALL_CAPS_WITH_UNDERSCORES
 
-# // Setup SQLite
+# // Setup Flask
 app = flask.Flask(__name__) 
 
 @app.route("/") # // Homepage
@@ -91,9 +90,8 @@ def logs():
 
 
 
-
     
-if __name__ == '__main__':  # Runs only if you run the script directly
-    app.run(port=8888)
+if __name__ == '__main__':  # DEEEEEEEEEEEEEEEEEEEEEBUG
+    serve(app, host ="0.0.0.0", port=9501)
     
     

@@ -145,7 +145,8 @@ def getLogs(userID=""): # Get logs for all users or a specific user(if specified
                 "trackID": action[1],
                 "action": action[6],
                 "actionDate": str(date),
-                "actionUnix": action[5]
+                "actionUnix": action[5],
+                "userName": action[2]
             }
         if action[6] == "removed": # // Add liked song entry for now removed songs TODO sort this
             logDB["add"+action[0]] = { # Formatted data for webpage
@@ -156,7 +157,8 @@ def getLogs(userID=""): # Get logs for all users or a specific user(if specified
                 "trackID": action[1],
                 "action": "added",
                 "actionDate": str(dateAdded),
-                "actionUnix": action[3]
+                "actionUnix": action[3],
+                "userName": action[2]
             }
     return logDB
     
