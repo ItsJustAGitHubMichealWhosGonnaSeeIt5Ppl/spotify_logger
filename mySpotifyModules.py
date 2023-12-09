@@ -12,9 +12,8 @@ CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 TOKEN_URL = 'https://accounts.spotify.com/api/token' # // Token request URL, send user code here :)
 AUTH_URL = 'https://accounts.spotify.com/authorize?' # // User auth page, send users here and get data from the callback
-REDIRECT_URI = 'http://localhost:8888/callback' # // Local callback, should contain users code which is used to get the token above
+REDIRECT_URI = os.getenv("REDIRECT_URI") # // Local callback, should contain users code which is used to get the token above
 API_URL = 'https://api.spotify.com/v1' # // Base URL for all API calls to spotify
-
 
 
 
@@ -40,14 +39,15 @@ def tokenRefresher(refershToken,userID):
         if refreshTokenRequest.status_code == 200: # // Confirm Token request was successful
             refreshTokenRequest = refreshTokenRequest.json() # // Reformat response
             newToken = refreshTokenRequest["access_token"]
-            newExpiration = currentUnixTime
             query = "UPDATE users SET tokenRefreshedDate = ?, token = ? WHERE userID = ?"
             data = (currentUnixTime, newToken, userID)
             accessDB(query,data,True)
             return newToken
         else: attempts+=1
+        
 
-def scanLiked(scanUser): # // Scan users liked tracks manually.  Input userID (would normally run every _ minutes)#
+#TODO #9 Choose repeat time, only scan if last scan was more than 5 minutes ago
+def scanLiked(scanUser): # // Scan users liked tracks manually.  Input userID (would normally run every _ minutes)
     database = sqlite3.connect("spotifyBackup.db")
     cursor = database.cursor()
     cursor.execute("SELECT token, tokenRefresh, tokenRefreshedDate, userID FROM users WHERE userID=?",(scanUser,)) # // Should probably have some validation somewhere
@@ -109,11 +109,11 @@ def addUser(userInfo): # // Attempt to add user
     database.commit()
 
 
-def getLogs(userID=""): # Get logs for all users or a specific user(if specified)
+def getLogs(userID=""): # Get logs for all users or a specific user(if specified) #TODO #8 Multiple users cause this to mark all songs as removed
     database = sqlite3.connect("spotifyBackup.db")
     logDB= {}
     cursor = database.cursor() 
-    if userID == "": # // Check if user ID is blank TODO, add failure detection
+    if userID == "": # // Check if user ID is blank TODO, #5 add failure detection
         cursor.execute(""" SELECT * FROM trackLog ORDER BY actionDate DESC""",)
     trackLog = cursor.fetchall()
     for action in trackLog:
@@ -148,7 +148,7 @@ def getLogs(userID=""): # Get logs for all users or a specific user(if specified
                 "actionUnix": action[5],
                 "userName": action[2]
             }
-        if action[6] == "removed": # // Add liked song entry for now removed songs TODO sort this
+        if action[6] == "removed": # // Add liked song entry for now removed songs TODO #6 sort this
             logDB["add"+action[0]] = { # Formatted data for webpage
                 "Name": name[0],
                 "trackName": artistInfo[0],
