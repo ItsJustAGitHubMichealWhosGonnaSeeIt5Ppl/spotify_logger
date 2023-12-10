@@ -56,7 +56,7 @@ def scanLiked(scanUser): # // Scan users liked tracks manually.  Input userID (w
     cursor = database.cursor()
     cursor.execute("SELECT token, tokenRefresh, tokenRefreshedDate, userID FROM users WHERE userID=?",(scanUser,)) # // Should probably have some validation somewhere
     userInfo = cursor.fetchone() # //Output from SQL request above as tuple 
-    if scanUser not in userInfo: # // Check for valid input
+    if scanUser not in userInfo: # // Check for valid input #TODO Does not work if there is no data returned
         return print("No user found")
 
     if userInfo[2] + 3000 < currentUnixTime: # Check if token is more than 1 hour old (technically a bit less just to be safe in case it runs slow
@@ -88,24 +88,29 @@ def scanLiked(scanUser): # // Scan users liked tracks manually.  Input userID (w
                 "track": trackInfo["name"],
                 "album": trackInfo["album"]["name"],
                 "artist": trackInfo["artists"][0]["name"],
-                "likedDate": likedDateUnix,
+                "actionDate": likedDateUnix,
                 "userID": userInfo[3], # // Allows for better insertion into the logger
-                "null": "",
-                "added": "added",
+                "latestAction": "yes",
+                "action": "added",
                 "uID": trackInfo["id"][:7] + str(likedDateUnix) + userInfo[3][:7], # // Creates all track UIDs
                 "currentDate": int(str(datetime.datetime.now(datetime.timezone.utc).timestamp())[:10]),
                 }
             uidList.append(trackInfo["id"][:7] + str(likedDateUnix) + userInfo[3][:7])
-        # // Make sure we're not still in the loop ;)
+        # // Make sure we're not still in the loop
+    uidList = tuple(uidList) 
+    sqlRemoved =f"""WHERE userID=? AND
+                    action='added' AND 
+                    latestAction='yes' AND 
+                    UID NOT IN {uidList}"""    
+    cursor.execute(f""" SELECT trackID, UID FROM trackLog""" + sqlRemoved,userInfo[3]) 
+    removedTracks = cursor.fetchall()
+    cursor.execute(f""" UPDATE OR IGNORE trackLog latestAction='no'""" + sqlRemoved,userInfo[3])
+    for x in removedTracks: # Add log iteem for removed tracks
+        cursor.execute(f"INSERT OR IGNORE INTO trackLog UID={removedTracks[x][1]+'r'}, trackID={removedTracks[x][0]}, userID={userInfo[3]},actionDate={currentUnixTime} action='removed', latestAction='yes'",)
     for x in userTracksData: # // Iterate through and attempt to update each track to both the log and song list
         cursor.execute("INSERT OR IGNORE INTO spotifyTracks VALUES(:trackID, :trackURL, :previewURL, :track, :album, :artist)", userTracksData[x]) # // Add tracks to the main track DB. 
-        cursor.execute("INSERT OR IGNORE INTO trackLog VALUES(:uID, :trackID, :userID, :likedDate, :null, :likedDate, :added)", userTracksData[x]) #// Only add songs where tags don't match
+        cursor.execute("INSERT OR IGNORE INTO trackLog VALUES(:uID, :trackID, :userID, :actionDate, :action, :latestAction)", userTracksData[x]) #// Only add songs where tags don't match
     database.commit()
-    uidList = tuple(uidList)
-    cursor.execute(f"UPDATE trackLog SET unlikedDate = ?, actionDate = ?, actionType = 'removed' WHERE UID NOT IN {uidList} AND actionType = 'added'", (currentUnixTime, currentUnixTime,)) # This should kind of work
-    database.commit()
-
-
 def addUser(userInfo): # // Attempt to add user
     database = sqlite3.connect("spotifyBackup.db")
     cursor = database.cursor()
@@ -212,5 +217,4 @@ def spotifyUserToken(userCode): # Request spotify token with user details.
                     "refresh_token": tokenRequest.json()['refresh_token'],
                 }
         return 555 # This will catch other errors, if more specific codes are found, add them above
-
 # getLogs() #// DEBUG ONLY

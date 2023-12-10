@@ -53,10 +53,9 @@ cursor.execute("""CREATE TABLE if NOT EXISTS trackLog(
                UID TEXT PRIMARY KEY,
                trackID TEXT,
                userID TEXT,
-               likedDate INT,
-               unlikedDate INT,
                actionDate INT,
                actionType TEXT,
+               latestAction TEXT,
                FOREIGN KEY(userID) REFERENCES users(userID),
                FOREIGN KEY(trackID) REFERENCES spotifyTracks(trackID)
 )""")
@@ -64,10 +63,9 @@ cursor.execute("""CREATE TABLE if NOT EXISTS trackLog(
 # UID = Allows each item to be tracked individually
 # trackID = Spotify track ID from spotifyTrack table. Reduces unneeded API calls
 # userID = userID from the users table
-# likedDate = UNIX timestamp when song was liked - Use spotify "added_at" string
-# unlikedDate = UNIX timestamp when the song was unliked if applicable TODO Figure out how to compare this in a nice way to find songs that are no longer liked
 # actionDate = either the liked date or the unliked date
 # actionType = added or removed
+# latestAction yes or no depending on if the song has already been removed
 
 ## This is just for testing
 unixTime = str(datetime.datetime.now(datetime.timezone.utc).timestamp())[:10] # Current time in unix
