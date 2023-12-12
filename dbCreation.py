@@ -8,8 +8,6 @@
 
 import sqlite3
 import datetime
-from zlib import DEF_BUF_SIZE
-
 
 database = sqlite3.connect("spotifyBackup.db") # // Open DB (creates it if it doesnt exist) // Note this is created in the project root. In this case not in SpotifyBackupTool, it was Understanding APIs
 

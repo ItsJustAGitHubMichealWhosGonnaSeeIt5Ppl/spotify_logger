@@ -8,9 +8,9 @@ import os # // Needed to access the API keys
 import datetime # // Used to track user first login time and track removal time
 import mySpotifyModules as sMod
 from waitress import serve
-#TODO #4 Update requirements.txt
-#TODO #11 Misc optimisations 
-
+# TODO #11 Misc optimisations 
+# TODO #18 Remove unneeded imports
+# TODO #19 Spruce up webpages
 
 # // Constants and variables we'll need alot
 dotenv.load_dotenv() # // Loading variables
@@ -21,6 +21,7 @@ AUTH_URL = 'https://accounts.spotify.com/authorize?' # // User auth page, send u
 REDIRECT_URI = os.getenv("REDIRECT_URI") # // Local callback, should contain users code which is used to get the token above
 API_URL = 'https://api.spotify.com/v1' # // Base URL for all API calls to spotify
 ## \\ All above are Constants (variable that cannot be changed). To create, use ALL_CAPS_WITH_UNDERSCORES
+
 
 # // Setup Flask
 app = flask.Flask(__name__) 
@@ -69,11 +70,7 @@ def callback():
 @app.route('/logs') # // Log page
 def logs():
     return flask.render_template("logs.html", logdb=sMod.getLogs())
-
-
-
     
 if __name__ == '__main__': 
     serve(app, host ="0.0.0.0", port=8888)
-    
-    
+
