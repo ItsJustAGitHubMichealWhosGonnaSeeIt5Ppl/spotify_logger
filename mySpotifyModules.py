@@ -9,6 +9,17 @@ import os # // Needed to access the API keys
 import datetime # // Used to track user first login time and track removal time
 import sqlite3 # // Used for information collection and storage
 
+
+""" 
+# # # Might be useful later # # # 
+# from dateutil.relativedelta import relativedelta as relDelta
+# dateRel = relDelta(datetime.datetime.now(), datetime.datetime.fromtimestamp(1702261163))
+# print(dateRel)
+# # # Might be useful later # # # 
+"""
+
+
+
 # // Constants and variables needed often
 dotenv.load_dotenv() # // Loading .env variables
 CLIENT_ID = os.getenv("CLIENT_ID") 
@@ -150,7 +161,7 @@ def getLogs(userID="all"): # Get logs for all users or a specific user(if specif
                 "trackURL": artistInfo[1],
                 "trackID": action[1],
                 "action": action[4],
-                "actionDateRel": dateRel,
+                "actionDateRel": dateRel, # TODO #17 Fix the formatting for this date.
                 "actionUnix": action[3],
                 "userID": action[2]
             }
