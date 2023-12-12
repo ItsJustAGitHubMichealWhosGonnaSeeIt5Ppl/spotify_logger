@@ -56,7 +56,7 @@ def scanLiked(scanUser): # // Scan users liked tracks manually.  Input userID (w
     cursor = database.cursor()
     cursor.execute("SELECT token, tokenRefresh, tokenRefreshedDate, userID FROM users WHERE userID=?",(scanUser,)) # // Should probably have some validation somewhere
     userInfo = cursor.fetchone() # //Output from SQL request above as tuple 
-    if scanUser not in userInfo: # // Check for valid input
+    if scanUser not in userInfo: # // Check for valid input #TODO Does not work if there is no data returned
         return print("No user found")
 
     if userInfo[2] + 3000 < currentUnixTime: # Check if token is more than 1 hour old (technically a bit less just to be safe in case it runs slow
@@ -88,24 +88,25 @@ def scanLiked(scanUser): # // Scan users liked tracks manually.  Input userID (w
                 "track": trackInfo["name"],
                 "album": trackInfo["album"]["name"],
                 "artist": trackInfo["artists"][0]["name"],
-                "likedDate": likedDateUnix,
+                "actionDate": likedDateUnix,
                 "userID": userInfo[3], # // Allows for better insertion into the logger
-                "null": "",
-                "added": "added",
-                "uID": trackInfo["id"][:7] + str(likedDateUnix) + userInfo[3][:7], # // Creates all track UIDs
-                "currentDate": int(str(datetime.datetime.now(datetime.timezone.utc).timestamp())[:10]),
+                "latestAction": "yes",
+                "actionType": "added",
+                "uID": trackInfo["id"][:7] + str(likedDateUnix) + userInfo[3][:7] # Creates a UID for the track
                 }
             uidList.append(trackInfo["id"][:7] + str(likedDateUnix) + userInfo[3][:7])
-        # // Make sure we're not still in the loop ;)
+        # // Make sure we're not still in the loop
+    uidList = tuple(uidList) 
+    cursor.execute(f""" SELECT * FROM trackLog WHERE UID NOT IN {uidList} AND userID=? AND actionType='added' AND latestAction='yes'""",(userInfo[3],)) 
+    removedTracks = cursor.fetchall()
+    cursor.execute(f""" UPDATE OR IGNORE trackLog SET latestAction='no' WHERE userID=? AND actionType='added' AND latestAction='yes' AND UID NOT IN {uidList}""",(userInfo[3],))
+    for track in removedTracks: # Add log iteem for removed tracks
+        newUID = track[0]+ 'r' # Add R to UID to indicate its been removed
+        cursor.execute(f"INSERT OR IGNORE INTO trackLog VALUES(?, ?, ?, ?, 'removed', 'yes')",(newUID,track[1],track[2],currentUnixTime,))
     for x in userTracksData: # // Iterate through and attempt to update each track to both the log and song list
         cursor.execute("INSERT OR IGNORE INTO spotifyTracks VALUES(:trackID, :trackURL, :previewURL, :track, :album, :artist)", userTracksData[x]) # // Add tracks to the main track DB. 
-        cursor.execute("INSERT OR IGNORE INTO trackLog VALUES(:uID, :trackID, :userID, :likedDate, :null, :likedDate, :added)", userTracksData[x]) #// Only add songs where tags don't match
+        cursor.execute("INSERT OR IGNORE INTO trackLog VALUES(:uID, :trackID, :userID, :actionDate, :actionType, :latestAction)", userTracksData[x]) #// Only add songs where tags don't match
     database.commit()
-    uidList = tuple(uidList)
-    cursor.execute(f"UPDATE trackLog SET unlikedDate = ?, actionDate = ?, actionType = 'removed' WHERE UID NOT IN {uidList} AND actionType = 'added'", (currentUnixTime, currentUnixTime,)) # This should kind of work
-    database.commit()
-
-
 def addUser(userInfo): # // Attempt to add user
     database = sqlite3.connect("spotifyBackup.db")
     cursor = database.cursor()
@@ -113,11 +114,13 @@ def addUser(userInfo): # // Attempt to add user
     database.commit()
 
 # TODO #13 Replace likeddate and unliked date with actionDate and add a new action for all actions
-def getLogs(userID=""): # Get logs for all users or a specific user(if specified) #TODO #8 Multiple users cause this to mark all songs as removed
+def getLogs(userID="all"): # Get logs for all users or a specific user(if specified) #TODO #8 Multiple users cause this to mark all songs as removed
     database = sqlite3.connect("spotifyBackup.db")
     logDB= {}
     cursor = database.cursor() 
-    if userID == "": # // Check if user ID is blank TODO, #5 add failure detection
+    if userID != "all": # // Check if user ID is blank TODO, #5 add failure detection
+        cursor.execute(""" SELECT * FROM trackLog WHERE userID=? ORDER BY actionDate DESC""",(userID,))
+    else:
         cursor.execute(""" SELECT * FROM trackLog ORDER BY actionDate DESC""",)
     trackLog = cursor.fetchall()
     for action in trackLog:
@@ -125,11 +128,11 @@ def getLogs(userID=""): # Get logs for all users or a specific user(if specified
         0 UID
         1 trackID
         2 userID
-        3 likedDate
-        4 unlikedDate (This can be blank!!)
-        5 actionDate - This is what should be pulled from 99.9% of the time
-        6 actionType - Can be added or removed, maybe it should be true or false, IDK
+        3 actionDate
+        4 actionType - Can be added or removed, maybe it should be true or false, IDK
+        5 latestAction - Yes or no, i dont think we'll use this?
         """
+        # Get user friendly name and track info
         cursor.execute("SELECT name FROM users WHERE userID=?",(action[2],))
         name = cursor.fetchone()
         cursor.execute("SELECT track, trackURL, artist FROM spotifyTracks WHERE trackID=?",(action[1],))
@@ -139,31 +142,17 @@ def getLogs(userID=""): # Get logs for all users or a specific user(if specified
         1 Track URL
         2 Artist
         """
-        date = datetime.datetime.fromtimestamp(action[5])
-        dateAdded = datetime.datetime.fromtimestamp(action[3])
+        dateRel = datetime.datetime.now() - datetime.datetime.fromtimestamp(action[3])
         logDB[action[0]] = { # Formatted data for web
-                "Name": name[0],
+                "name": name[0],
                 "trackName": artistInfo[0],
                 "artistName": artistInfo[2],
                 "trackURL": artistInfo[1],
                 "trackID": action[1],
-                "action": action[6],
-                "actionDate": str(date),
-                "actionUnix": action[5],
-                "userName": action[2]
-            }
-        #TODO #12 Remove this, all songs should have their own line!
-        if action[6] == "removed": # // Add liked song entry for now removed songs TODO #6 sort this
-            logDB["add"+action[0]] = { # Formatted data for webpage
-                "Name": name[0],
-                "trackName": artistInfo[0],
-                "artistName": artistInfo[2],
-                "trackURL": artistInfo[1],
-                "trackID": action[1],
-                "action": "added",
-                "actionDate": str(dateAdded),
+                "action": action[4],
+                "actionDateRel": dateRel,
                 "actionUnix": action[3],
-                "userName": action[2]
+                "userID": action[2]
             }
     return logDB
     
@@ -174,7 +163,15 @@ def drasticMeasures(): # Delete the entire trackLog DB
     cursor.execute("DELETE FROM trackLog")
     database.commit()
     return print("trackLog has been wiped")    
-   
+
+
+def scheduledScan(): # Scans all users
+    database = sqlite3.connect("spotifyBackup.db")
+    cursor = database.cursor()
+    cursor.execute("Select userID FROM users")
+    users = cursor.fetchall()
+    for user in users:
+        scanLiked(user[0])
    
 # Welcome to the spotify section
 def spotifyUserAuth():
@@ -212,5 +209,3 @@ def spotifyUserToken(userCode): # Request spotify token with user details.
                     "refresh_token": tokenRequest.json()['refresh_token'],
                 }
         return 555 # This will catch other errors, if more specific codes are found, add them above
-
-# getLogs() #// DEBUG ONLY
