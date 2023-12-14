@@ -1,11 +1,8 @@
 # // Imports
 from flask import redirect
-import requests # // Send API requests
 import flask # // Web app/web server. This is letting me do the oauth token and callback with spotify
-import urllib.parse # // Still not 100% sure
 import dotenv # // Securely storing our API keys
 import os # // Needed to access the API keys
-import datetime # // Used to track user first login time and track removal time
 import mySpotifyModules as sMod
 from waitress import serve
 # TODO #11 Misc optimisations 

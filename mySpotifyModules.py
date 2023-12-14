@@ -1,6 +1,3 @@
-
-
-
 # // Trying to move all functions here for clarity
 from requests import get, post
 import urllib.parse # Will be used once all functions  are moved over
@@ -8,16 +5,7 @@ import dotenv # // Securely storing our API keys
 import os # // Needed to access the API keys
 import datetime # // Used to track user first login time and track removal time
 import sqlite3 # // Used for information collection and storage
-
-
-""" 
-# # # Might be useful later # # # 
-# from dateutil.relativedelta import relativedelta as relDelta
-# dateRel = relDelta(datetime.datetime.now(), datetime.datetime.fromtimestamp(1702261163))
-# print(dateRel)
-# # # Might be useful later # # # 
-"""
-
+from operator import mul, truediv
 
 
 # // Constants and variables needed often
@@ -34,11 +22,65 @@ Do loops on the site."""
 
 currentUnixTime = int(str(datetime.datetime.now(datetime.timezone.utc).timestamp())[:10])
 
+# Required for timeConvert and maxFriendlyDate
+validTuple = ('second','minute','hour','day','week','month','year')
+validConverts = {
+        'second': 0,
+        'minute': 60,
+        'hour': 60,
+        'day': 24,
+        'week':7,
+        'month':4,
+        'year':12
+        }
+
+# Conver time by supported intervals
+def timeConvert(input,convertType):  
+    """ Converts time invtervals, can work in either direction
+    *toSecond
+    *toMinute
+    *toHour
+    *toDay
+    *toWeek
+    *toMonth(30 days)
+    *toYear
+    """
+
+    convertType = convertType.lower().split("to") # Split on to, then check the index location of both inputs
+    fromInt = validTuple.index(convertType[0]) 
+    toInt = validTuple.index(convertType[1])
+    op = "mul" if toInt < fromInt else False if toInt == fromInt else "truediv" # Make sure we're doing our math right
+    for key in validTuple[fromInt+1:toInt+1] if fromInt < toInt else reversed(validTuple[toInt+1:fromInt+1]): 
+        input = mul(input,validConverts[key]) if op == "mul" else truediv(input,validConverts[key])
+    return input
+
+# Find highest valid friendly date
+def maxFriendlyDate(dateInSeconds):
+    dateString = ""
+    capped = False # Stop at years
+    while int(dateInSeconds) != 0: # Find highest possible number for each
+        capped = False # Stop at years
+        for byMe in validTuple:
+            if byMe == 'year':
+                capped = True
+            else:
+                realKey = validTuple[validTuple.index(byMe)+1]
+            tryDate = timeConvert(dateInSeconds,f'secondto{byMe}')
+            if int(tryDate) >= validConverts[realKey] and capped == False: # If the number returned is larger than 1, try iterating to the next level
+                continue
+            elif int(tryDate) < validConverts[realKey] or capped == True: # Move on
+                dateString += f'{int(tryDate)} {byMe} ' if int(tryDate) == 1 else f'{int(tryDate)} {byMe}s '
+                dateInSeconds -= timeConvert(int(tryDate),f'{byMe}tosecond')
+                break
+    return dateString
+
+
 def accessDB(query,data,commit=False): # // Execute SQL queries here 
     database = sqlite3.connect("spotifyBackup.db")
     cursor = database.cursor()
     cursor.execute(query,data)
-    if commit == True: database.commit() # Save changes
+    if commit is True: 
+        database.commit() # Save changes
 
 
 def tokenRefresher(refershToken,userID):
@@ -58,7 +100,8 @@ def tokenRefresher(refershToken,userID):
             data = (currentUnixTime, newToken, userID)
             accessDB(query,data,True)
             return newToken
-        else: attempts+=1
+        else: 
+            attempts+=1
         
 
 #TODO #9 Choose repeat time, only scan if last scan was more than 5 minutes ago
@@ -85,7 +128,8 @@ def scanLiked(scanUser): # // Scan users liked tracks manually.  Input userID (w
     while trackOffset < totalTracks:
         print(f"doing tracks starting at{trackOffset}, total tracks = {totalTracks}")
         trackRequest = get(API_URL + "/me/tracks?limit=50&offset=" + str(trackOffset), headers = header) # // Pull first 50 tracks # // Add server busy detection [500]
-        if trackRequest.status_code != 200: continue 
+        if trackRequest.status_code != 200: 
+            continue 
         trackRequest = trackRequest.json()
         totalTracks = int(trackRequest["total"])
         trackOffset = int(trackRequest["offset"]) + 50 # // Add 50 to offset (loading the next page)
@@ -113,7 +157,8 @@ def scanLiked(scanUser): # // Scan users liked tracks manually.  Input userID (w
     cursor.execute(f""" UPDATE OR IGNORE trackLog SET latestAction='no' WHERE userID=? AND actionType='added' AND latestAction='yes' AND UID NOT IN {uidList}""",(userInfo[3],))
     for track in removedTracks: # Add log iteem for removed tracks
         newUID = track[0]+ 'r' # Add R to UID to indicate its been removed
-        cursor.execute(f"INSERT OR IGNORE INTO trackLog VALUES(?, ?, ?, ?, 'removed', 'yes')",(newUID,track[1],track[2],currentUnixTime,))
+        cursor.execute(
+            "INSERT OR IGNORE INTO trackLog VALUES(?, ?, ?, ?, 'removed', 'yes')",(newUID,track[1],track[2],currentUnixTime,))
     for x in userTracksData: # // Iterate through and attempt to update each track to both the log and song list
         cursor.execute("INSERT OR IGNORE INTO spotifyTracks VALUES(:trackID, :trackURL, :previewURL, :track, :album, :artist)", userTracksData[x]) # // Add tracks to the main track DB. 
         cursor.execute("INSERT OR IGNORE INTO trackLog VALUES(:uID, :trackID, :userID, :actionDate, :actionType, :latestAction)", userTracksData[x]) #// Only add songs where tags don't match
@@ -153,7 +198,7 @@ def getLogs(userID="all"): # Get logs for all users or a specific user(if specif
         1 Track URL
         2 Artist
         """
-        dateRel = datetime.datetime.now() - datetime.datetime.fromtimestamp(action[3])
+        dateRel = (datetime.datetime.now() - datetime.datetime.fromtimestamp(action[3])).total_seconds()
         logDB[action[0]] = { # Formatted data for web
                 "name": name[0],
                 "trackName": artistInfo[0],
@@ -161,7 +206,7 @@ def getLogs(userID="all"): # Get logs for all users or a specific user(if specif
                 "trackURL": artistInfo[1],
                 "trackID": action[1],
                 "action": action[4],
-                "actionDateRel": dateRel, # TODO #17 Fix the formatting for this date.
+                "actionDateRel": maxFriendlyDate(dateRel), # TODO #17 Fix the formatting for this date.
                 "actionUnix": action[3],
                 "userID": action[2]
             }
