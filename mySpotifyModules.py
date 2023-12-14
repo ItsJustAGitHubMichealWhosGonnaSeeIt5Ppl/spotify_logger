@@ -54,23 +54,22 @@ def timeConvert(input,convertType):
         input = mul(input,validConverts[key]) if op == "mul" else truediv(input,validConverts[key])
     return input
 
-# Find highest valid friendly date
-def maxFriendlyDate(dateInSeconds):
+# Find highest friendly date
+def maxFriendlyDate(dateInSeconds,limit=10):
+    """ Limit allows you to set how many date values will be provided. 
+    For example if you set the limit to 2, you would get 1 year, 10 months instead of 1 year, 10 months, 2 weeks, 5 days...""" 
     dateString = ""
-    capped = False # Stop at years
-    while int(dateInSeconds) != 0: # Find highest possible number for each
-        capped = False # Stop at years
+    while int(dateInSeconds) != 0 and limit > 0:
+        
         for byMe in validTuple:
-            if byMe == 'year':
-                capped = True
-            else:
-                realKey = validTuple[validTuple.index(byMe)+1]
+            realKey = validTuple[validTuple.index(byMe)+1] if byMe != 'year' else byMe
             tryDate = timeConvert(dateInSeconds,f'secondto{byMe}')
-            if int(tryDate) >= validConverts[realKey] and capped == False: # If the number returned is larger than 1, try iterating to the next level
+            if int(tryDate) >= validConverts[realKey] and byMe != 'year': # If the number returned is larger than 1, try iterating to the next level
                 continue
-            elif int(tryDate) < validConverts[realKey] or capped == True: # Move on
+            elif int(tryDate) < validConverts[realKey] or byMe == 'year':
                 dateString += f'{int(tryDate)} {byMe} ' if int(tryDate) == 1 else f'{int(tryDate)} {byMe}s '
                 dateInSeconds -= timeConvert(int(tryDate),f'{byMe}tosecond')
+                limit -=1
                 break
     return dateString
 
@@ -206,7 +205,7 @@ def getLogs(userID="all"): # Get logs for all users or a specific user(if specif
                 "trackURL": artistInfo[1],
                 "trackID": action[1],
                 "action": action[4],
-                "actionDateRel": maxFriendlyDate(dateRel), # TODO #17 Fix the formatting for this date.
+                "actionDateRel": maxFriendlyDate(dateRel,2),
                 "actionUnix": action[3],
                 "userID": action[2]
             }

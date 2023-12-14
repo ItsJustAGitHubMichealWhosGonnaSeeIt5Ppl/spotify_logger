@@ -63,7 +63,6 @@ def callback():
     return flask.render_template("logs.html", logdb=logdb)
 
 
-
 @app.route('/logs') # // Log page
 def logs():
     return flask.render_template("logs.html", logdb=sMod.getLogs())
